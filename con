@@ -1,0 +1,90 @@
+#!/bin/bash
+
+ACTION_SHORTCUT="$1"
+
+# initial setup if not done already
+CONFIG_DIR="$HOME/.config/connection-manager"
+
+mkdir -p $CONFIG_DIR
+
+FILE_CONNECTIONS="${CONFIG_DIR}/connections.list"
+FILE_SECRETS="${CONFIG_DIR}/secrets.list"
+
+if [ ! -e $FILE_CONNECTIONS ]; then
+    touch $FILE_CONNECTIONS
+fi
+
+if [ ! -e $FILE_SECRETS ]; then
+    sudo touch $FILE_SECRETS
+    sudo chmod 200 $FILE_SECRETS
+fi
+
+# additional queries
+if [ "$ACTION_SHORTCUT" = "list" ]; then
+    sort $FILE_CONNECTIONS | grep -v ^\#
+    exit 0
+fi
+
+if [ "$ACTION_SHORTCUT" = "edit" ]; then
+    if [ -z "$2" ]; then
+        echo "Missing argument. Add 'connections' or 'secrets'."
+        exit 1
+    fi
+    case $2 in
+        connections) vi $FILE_CONNECTIONS;;
+        secrets) sudo vi $FILE_SECRETS;;
+        *) echo "Unknown option '$2'. Use 'connections' or 'secrets' instead."; exit 1;;
+    esac
+    exit 0
+fi
+
+# handle standard queries
+CONNECTION_SHORTNAME="$2"
+
+if [ -z $CONNECTION_SHORTNAME ]; then
+    echo "Usage:"
+    echo "$(basename $0) list"
+    echo "$(basename $0) edit connections|secrets"
+    echo "$(basename $0) - <connection-shortname>"
+    echo "$(basename $0) ssh <connection-shortname>"
+    echo "$(basename $0) scp <connection-shortname> <source> <destination> (Use 'R:' to define remote side)"
+    exit 1
+fi
+
+if [ "$(cat $FILE_CONNECTIONS | grep $CONNECTION_SHORTNAME: | wc -l)" = "1" ]; then
+    CON=$(cat $FILE_CONNECTIONS | grep $CONNECTION_SHORTNAME)
+    echo "Connecting to ${CON#*:}"
+    if [ "$(sudo cat $FILE_SECRETS | grep $CONNECTION_SHORTNAME: | grep -v ^\# | wc -l)" = "1" ]; then
+        SECRET=$(sudo cat $FILE_SECRETS | grep $CONNECTION_SHORTNAME | grep -v ^\#)
+        case $ACTION_SHORTCUT in
+            -) echo "${CON#*:}";;
+            ssh)
+                sshpass -p "${SECRET#*:}" ssh ${CON#*:};;
+            scp)
+                if [ -z $4 ]; then echo "Missing parameters: <source>, <destination>"; exit 1; fi
+                SOURCE=${3/R:/${CON#*:}:}
+                DESTINATION=${4/R:/${CON#*:}:}
+                sshpass -p "${SECRET#*:}" scp $SOURCE $DESTINATION
+                ;;
+            *) echo "Unknown action shortcut '$ACTION_SHORTCUT'"; exit 1;;
+        esac
+        # add RSA key fingerprint to ~/.ssh/known_hosts
+        if [ "$?" = "6" ]; then
+            ssh-keyscan -H ${CON#*@} >> ~/.ssh/known_hosts
+            echo "Added RSA key fingerprint to ~/.ssh/known_hosts"
+            echo "Please re-run the last command."
+            exit 0
+        fi
+    else
+        ssh ${CON#*:}
+    fi
+else
+    echo "Connection shortname undefined. Search results:"
+    if [ "$(cat $FILE_CONNECTIONS | grep $CONNECTION_SHORTNAME | grep -v ^\# | wc -l)" != "0" ]; then
+        cat $FILE_CONNECTIONS | grep $CONNECTION_SHORTNAME | grep -v ^\#
+        exit 0
+    else
+        echo "No matches."
+        exit 1
+    fi
+fi
