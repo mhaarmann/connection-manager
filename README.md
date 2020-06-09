@@ -7,11 +7,9 @@ Connections get stored in `~/.config/connection-manager/`.
 ## Setup
 
 ```console
-cd ~/
-git clone https://gitlab.com/mhaarmann/connection-manager.git
-chmod +x connection-manager/con
-echo "alias con='~/connection-manager/con'" >> .bashrc
-source .bashrc
+wget https://gitlab.com/mhaarmann/connection-manager/-/raw/master/con
+chmod +x con
+sudo mv con /usr/local/bin/
 ```
 
 ## Usage
