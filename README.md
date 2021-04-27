@@ -7,7 +7,7 @@ Connections get stored in `~/.config/connection-manager/`.
 ## Setup
 
 ```console
-wget https://gitlab.com/mhaarmann/connection-manager/-/raw/master/con
+wget https://raw.githubusercontent.com/mhaarmann/connection-manager/master/con
 chmod +x con
 sudo mv con /usr/local/bin/
 ```
